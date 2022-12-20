@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: flaresolverr
+    name: deployment
+    part-of: flaresolverr-data
+    created-by: miwwge
+  name: flaresolverr
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flaresolverr
+  template:
+    metadata:
+      labels:
+        app: flaresolverr
+    spec:
+      containers:
+      - name: flaresolverr
+        image: flaresolverr/flaresolverr:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "128Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        ports:
+        - name: access
+          containerPort: 8191
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: flaresolverr
+    name: service
+    part-of: flaresolverr-data
+    created-by: miwwge
+  name: flaresolverr
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: homer
+  ports:
+  - protocol: TCP
+    port: 8191
+    targetPort: 8191
+  clusterIP: 10.43.152.10

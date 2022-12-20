@@ -1,0 +1,108 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: homer-pv
+  labels:
+    app: homer
+    name: nfs-volume
+    part-of: homer-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: nfs
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  nfs:
+    server: 10.1.1.11
+    path: /data/configs/homer
+    readOnly: false
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: homer-pvc
+  labels:
+    app: homer
+    name: nfs-volume-claim
+    part-of: homer-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: homer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: homer
+    name: deployment
+    part-of: homer-data
+    created-by: miwwge
+  name: homer
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homer
+  template:
+    metadata:
+      labels:
+        app: homer
+    spec:
+      containers:
+      - name: homer
+        image: b4bz/homer:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "128Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        ports:
+        - name: web-portal
+          containerPort: 8080
+        volumeMounts:
+        - name: homer-config-volume
+          mountPath: /www/assets
+      volumes:
+      - name: homer-config-volume
+        persistentVolumeClaim:
+          claimName: homer-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: homer
+    name: service
+    part-of: homer-data
+    created-by: miwwge
+  name: homer
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: homer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  clusterIP: 10.43.153.1
+  loadBalancerIP: 10.1.1.31
