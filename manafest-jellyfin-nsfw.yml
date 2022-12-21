@@ -193,5 +193,4 @@ spec:
     protocol: UDP
     port: 1900
     targetPort: 1900
-  clusterIP: 10.43.153.3
   loadBalancerIP: 10.1.1.33

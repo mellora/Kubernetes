@@ -104,5 +104,4 @@ spec:
   - protocol: TCP
     port: 80
     targetPort: 8080
-  clusterIP: 10.43.153.1
   loadBalancerIP: 10.1.1.31
