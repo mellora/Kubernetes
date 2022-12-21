@@ -1,0 +1,197 @@
+# PV for config
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jellyfin-nsfw-config-pv
+  labels:
+    app: jellyfin-nsfw
+    name: nfs-volume
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: nfs
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  nfs:
+    server: 10.1.1.11
+    path: /data/configs/jellyfin-nsfw
+    readOnly: false
+# PV for Media
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jellyfin-nsfw-media-pv
+  labels:
+    app: jellyfin-nsfw
+    name: smb-volume
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: smb
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  mountOptions:
+    - dir_mode=0744
+    - file_mode=0644
+    - uid=1000
+    - gid=1000
+    - rw
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    readOnly: false
+    volumeHandle: jellyfin-nsfw-media
+    volumeAttributes:
+      source: "//10.1.1.20/Media"
+    nodeStageSecretRef:
+      name: smbcreds
+      namespace: default
+# PVC for Config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-nsfw-config-pvc
+  labels:
+    app: jellyfin-nsfw
+    name: nfs-volume-claim
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: jellyfin-nsfw
+  volumeName: jellyfin-nsfw-config-pv
+# PVC for Media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-nsfw-media-pvc
+  labels:
+    app: jellyfin-nsfw
+    name: smb-volume-claim
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: smb
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: jellyfin-nsfw
+  volumeName: jellyfin-nsfw-media-pv
+# App Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: jellyfin-nsfw
+    name: deployment
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+  name: jellyfin-nsfw
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jellyfin-nsfw
+  template:
+    metadata:
+      labels:
+        app: jellyfin-nsfw
+    spec:
+      containers:
+      - name: jellyfin-nsfw
+        image: linuxserver/jellyfin:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "128Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+        ports:
+        - name: http-web-ui
+          containerPort: 8096
+          protocol: TCP
+        - name: https-web-ui
+          containerPort: 8920
+          protocol: TCP
+        - name: net-discovery
+          containerPort: 7359
+          protocol: UDP
+        - name: dnla-discovery
+          containerPort: 1900
+          protocol: UDP
+        volumeMounts:
+        - name: jellyfin-nsfw-config-volume
+          mountPath: /config
+        - name: jellyfin-nsfw-media-volume
+          mountPath: /media
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: jellyfin-nsfw-config-volume
+        persistentVolumeClaim:
+          claimName: jellyfin-nsfw-config-pvc
+      - name: jellyfin-nsfw-media-volume
+        persistentVolumeClaim:
+          claimName: jellyfin-nsfw-media-pvc
+# Service Creation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: jellyfin-nsfw
+    name: service
+    part-of: jellyfin-nsfw-data
+    created-by: miwwge
+  name: jellyfin-nsfw
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: jellyfin-nsfw
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8096
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 8920
+  - name: net-discovery
+    protocol: UDP
+    port: 7359
+    targetPort: 7359
+  - name: dnla-discovery
+    protocol: UDP
+    port: 1900
+    targetPort: 1900
+  clusterIP: 10.43.153.3
+  loadBalancerIP: 10.1.1.33
