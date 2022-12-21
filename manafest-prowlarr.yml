@@ -1,0 +1,113 @@
+# PV for config
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prowlarr-config-pv
+  labels:
+    app: prowlarr
+    name: nfs-volume
+    part-of: prowlarr-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: nfs
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  nfs:
+    server: 10.1.1.11
+    path: /data/configs/prowlarr
+    readOnly: false
+# PVC for Config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prowlarr-config-pvc
+  labels:
+    app: prowlarr
+    name: nfs-volume-claim
+    part-of: prowlarr-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: prowlarr
+  volumeName: prowlarr-config-pv
+# App Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: prowlarr
+    name: deployment
+    part-of: prowlarr-data
+    created-by: miwwge
+  name: prowlarr
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      containers:
+      - name: prowlarr
+        image: linuxserver/prowlarr:develop
+        # image: linuxserver/prowlarr:nightly
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "128Mi"
+          limits:
+            cpu: "2000m"
+            memory: "1Gi"
+        ports:
+        - name: http-web-ui
+          containerPort: 9696
+          protocol: TCP
+        volumeMounts:
+        - name: prowlarr-config-volume
+          mountPath: /config
+      volumes:
+      - name: prowlarr-config-volume
+        persistentVolumeClaim:
+          claimName: prowlarr-config-pvc
+# Service Creation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prowlarr
+    name: service
+    part-of: prowlarr-data
+    created-by: miwwge
+  name: prowlarr
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: prowlarr
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 9696
+  clusterIP: 10.43.153.4
+  loadBalancerIP: 10.1.1.34
