@@ -1,0 +1,251 @@
+# PV for config
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: qbittorrent-config-pv
+  labels:
+    app: qbittorrent
+    name: nfs-volume
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: nfs
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  nfs:
+    server: 10.1.1.11
+    path: /data/configs/qbittorrent
+    readOnly: false
+# PV for Torrents
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: qbittorrent-torrent-pv
+  labels:
+    app: qbittorrent
+    name: smb-volume
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: smb
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  mountOptions:
+    - dir_mode=0744
+    - file_mode=0644
+    - uid=1000
+    - gid=1000
+    - rw
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    readOnly: false
+    volumeHandle: qbittorrent-torrents
+    volumeAttributes:
+      source: "//10.1.1.20/Torrents"
+    nodeStageSecretRef:
+      name: smbcreds
+      namespace: default
+# PV for ISO Downloads
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: qbittorrent-iso-pv
+  labels:
+    app: qbittorrent
+    name: smb-volume
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  capacity:
+    storage: 1Gi
+  storageClassName: smb
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem
+  mountOptions:
+    - dir_mode=0744
+    - file_mode=0644
+    - uid=1000
+    - gid=1000
+    - rw
+    - noperm
+  csi:
+    driver: smb.csi.k8s.io
+    readOnly: false
+    volumeHandle: qbittorrent-iso
+    volumeAttributes:
+      source: "//10.1.1.20/ISO"
+    nodeStageSecretRef:
+      name: smbcreds
+      namespace: default
+# PVC for Config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-config-pvc
+  labels:
+    app: qbittorrent
+    name: nfs-volume-claim
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: qbittorrent
+  volumeName: qbittorrent-config-pv
+# PVC for Torrents
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-torrent-pvc
+  labels:
+    app: qbittorrent
+    name: smb-volume-claim
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: smb
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: qbittorrent
+  volumeName: qbittorrent-torrent-pv
+# PVC for ISO
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-iso-pvc
+  labels:
+    app: qbittorrent
+    name: smb-volume-claim
+    part-of: qbittorrent-data
+    created-by: miwwge
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: smb
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: qbittorrent
+  volumeName: qbittorrent-iso-pv
+# App Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: qbittorrent
+    name: deployment
+    part-of: qbittorrent-data
+    created-by: miwwge
+  name: qbittorrent
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      containers:
+      - name: qbittorrent
+        image: linuxserver/qbittorrent:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "128Mi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        ports:
+        - name: http-web-ui
+          containerPort: 8080
+          protocol: TCP
+        - name: tcp-connection
+          containerPort: 6881
+          protocol: TCP
+        - name: udp-connection
+          containerPort: 6881
+          protocol: UDP
+        volumeMounts:
+        - name: qbittorrent-config-volume
+          mountPath: /config
+        - name: qbittorrent-torrent-volume
+          mountPath: /mnt/torrents
+        - name: qbittorrent-iso-volume
+          mountPath: /mnt/iso
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: qbittorrent-config-volume
+        persistentVolumeClaim:
+          claimName: qbittorrent-config-pvc
+      - name: qbittorrent-torrent-volume
+        persistentVolumeClaim:
+          claimName: qbittorrent-torrent-pvc
+      - name: qbittorrent-iso-volume
+        persistentVolumeClaim:
+          claimName: qbittorrent-iso-pvc
+# Service Creation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: qbittorrent
+    name: service
+    part-of: qbittorrent-data
+    created-by: miwwge
+  name: qbittorrent
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: qbittorrent
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  - name: tcp-connection
+    protocol: TCP
+    port: 6881
+    targetPort: 6881
+  - name: udp-connection
+    protocol: UDP
+    port: 6881
+    targetPort: 6881
+  loadBalancerIP: 10.1.1.35

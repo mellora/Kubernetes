@@ -128,11 +128,11 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: "500m"
-            memory: "128Mi"
+            cpu: "1000m"
+            memory: "512Mi"
           limits:
             cpu: "2000m"
-            memory: "2Gi"
+            memory: "4Gi"
         ports:
         - name: http-web-ui
           containerPort: 8096
