@@ -3,11 +3,11 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: jellyfin-nsfw-config-pv
+  name: jellyfin-config-pv
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: nfs-volume
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
 spec:
   accessModes:
@@ -19,18 +19,18 @@ spec:
   volumeMode: Filesystem
   nfs:
     server: 10.1.1.11
-    path: /data/configs/jellyfin-nsfw
+    path: /data/configs/jellyfin
     readOnly: false
 # PV for Media
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: jellyfin-nsfw-media-pv
+  name: jellyfin-media-pv
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: smb-volume
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
 spec:
   accessModes:
@@ -50,7 +50,7 @@ spec:
   csi:
     driver: smb.csi.k8s.io
     readOnly: false
-    volumeHandle: jellyfin-nsfw-media
+    volumeHandle: jellyfin-media
     volumeAttributes:
       source: "//10.1.1.20/Media"
     nodeStageSecretRef:
@@ -61,11 +61,11 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jellyfin-nsfw-config-pvc
+  name: jellyfin-config-pvc
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: nfs-volume-claim
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
 spec:
   accessModes:
@@ -76,18 +76,18 @@ spec:
       storage: 1Gi
   selector:
     matchLabels:
-      app: jellyfin-nsfw
-  volumeName: jellyfin-nsfw-config-pv
+      app: jellyfin
+  volumeName: jellyfin-config-pv
 # PVC for Media
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: jellyfin-nsfw-media-pvc
+  name: jellyfin-media-pvc
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: smb-volume-claim
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
 spec:
   accessModes:
@@ -98,32 +98,32 @@ spec:
       storage: 1Gi
   selector:
     matchLabels:
-      app: jellyfin-nsfw
-  volumeName: jellyfin-nsfw-media-pv
+      app: jellyfin
+  volumeName: jellyfin-media-pv
 # App Deployment
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: deployment
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
-  name: jellyfin-nsfw
+  name: jellyfin
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jellyfin-nsfw
+      app: jellyfin
   template:
     metadata:
       labels:
-        app: jellyfin-nsfw
+        app: jellyfin
     spec:
       containers:
-      - name: jellyfin-nsfw
+      - name: jellyfin
         image: linuxserver/jellyfin:latest
         imagePullPolicy: IfNotPresent
         resources:
@@ -147,35 +147,35 @@ spec:
           containerPort: 1900
           protocol: UDP
         volumeMounts:
-        - name: jellyfin-nsfw-config-volume
+        - name: jellyfin-config-volume
           mountPath: /config
-        - name: jellyfin-nsfw-media-volume
+        - name: jellyfin-media-volume
           mountPath: /media
       securityContext:
         fsGroup: 1000
       volumes:
-      - name: jellyfin-nsfw-config-volume
+      - name: jellyfin-config-volume
         persistentVolumeClaim:
-          claimName: jellyfin-nsfw-config-pvc
-      - name: jellyfin-nsfw-media-volume
+          claimName: jellyfin-config-pvc
+      - name: jellyfin-media-volume
         persistentVolumeClaim:
-          claimName: jellyfin-nsfw-media-pvc
+          claimName: jellyfin-media-pvc
 # Service Creation
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: jellyfin-nsfw
+    app: jellyfin
     name: service
-    part-of: jellyfin-nsfw-data
+    part-of: jellyfin-data
     created-by: miwwge
-  name: jellyfin-nsfw
+  name: jellyfin
   namespace: default
 spec:
   type: LoadBalancer
   selector:
-    app: jellyfin-nsfw
+    app: jellyfin
   ports:
   - name: http
     protocol: TCP
